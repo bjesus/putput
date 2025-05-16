@@ -1,0 +1,19 @@
+[package]
+name = "putput"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Downgrade gtk4 to be compatible with libadwaita 0.5
+gtk = { version = "0.9.6", package = "gtk4" }                            # Changed from 0.8 to 0.7
+adw = { version = "0.7.2", package = "libadwaita", features = ["v1_4"] }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8.22"
+dirs = "6.0"
+async-channel = "2.3.1"
+# No need to specify glib explicitly here if gtk brings in a compatible version
+# glib = "0.18" # We can often remove this explicit dependency
+
+# You might also need to update glib if gtk 0.7 requires an older version.
+# Cargo will usually tell you if there's a conflict. If needed, try:
+# glib = "0.17"
