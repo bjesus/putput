@@ -18,7 +18,6 @@ use gtk::{
     Box, // Use gtk::Box for the main container
     Button,
     EventControllerKey,
-    Label,
     Orientation,
     ScrolledWindow,
 };
@@ -76,9 +75,6 @@ fn build_ui(app: &Application) {
         .title(&app_title) // Use the title from config
         .default_width(400)
         .default_height(500)
-        // In libadwaita 0.5, we cannot directly set a HeaderBar as the window's titlebar
-        // or add actions to the built-in one easily.
-        // We will create a HeaderBar as a regular widget and place it in the content.
         .build();
 
     // Create the manual HeaderBar widget
@@ -91,15 +87,6 @@ fn build_ui(app: &Application) {
     clear_button.set_tooltip_text(Some("Clear Input"));
     // Add the clear button to the start of the manual HeaderBar
     header_bar.pack_start(&clear_button);
-
-    let run_button = Button::builder()
-        .label("Run") // Set button text to "Run"
-        .build();
-    run_button.set_tooltip_text(Some("Run Commands (Ctrl+Enter)")); // Keep tooltip text for consistency
-                                                                    // Apply accent color style class
-    run_button.add_css_class("suggested-action"); // Use suggested-action for accent color
-                                                  // Add the run button to the end of the manual HeaderBar
-    header_bar.pack_end(&run_button);
 
     // Create a vertical box to hold the header bar and the main content area
     let main_vbox = Box::new(Orientation::Vertical, 0); // 0 spacing between children
@@ -125,20 +112,23 @@ fn build_ui(app: &Application) {
     // --- Input Area ---
     // Use AdwEntryRow for the input area
     let input_entry_row = EntryRow::builder()
-        .title("Input (Press Enter or Ctrl+Enter to Run):") // Updated title text
-        .vexpand(false) // EntryRow is not designed to vexpand like TextView
+        .title("Input") // Updated title text
         .build();
+
+    input_entry_row.set_margin_top(5);
+    input_entry_row.set_margin_bottom(5);
+    input_entry_row.set_margin_start(5);
+    input_entry_row.set_margin_end(5);
 
     content_box.append(&input_entry_row);
 
     // --- Output Area ---
-    let output_label = Label::new(None); // Create label with no text initially
-    output_label.set_markup("<b>Output:</b>"); // Set markup for bold text
-    output_label.set_halign(Align::Start); // Align label to the start (left)
-    content_box.append(&output_label);
-
     // Use PreferencesGroup for styled grouping of outputs
     let output_group = PreferencesGroup::new();
+    output_group.set_margin_top(5);
+    output_group.set_margin_bottom(5);
+    output_group.set_margin_start(5);
+    output_group.set_margin_end(5);
 
     let output_scroll = ScrolledWindow::new();
     output_scroll.set_vexpand(true); // Allow output area to expand vertically
@@ -236,42 +226,16 @@ fn build_ui(app: &Application) {
         }
     };
 
-    // 1. Connect Run Button Click signal
-    let trigger_run_clone = trigger_run_commands.clone();
-    run_button.connect_clicked(move |_| {
-        trigger_run_clone(); // Call the trigger function
-    });
+    input_entry_row.connect_entry_activated(move |_| trigger_run_commands());
 
-    // 2. EventControllerKey for Enter and Ctrl+Enter on the input EntryRow
-    // Removed the connect_activate call
-    let key_controller_input = EventControllerKey::new(); // Controller for Enter and Ctrl+Enter
-    let trigger_run_clone_for_enter = trigger_run_commands.clone(); // Clone for key handler
-
-    key_controller_input.connect_key_pressed(move |_, keyval, _, modifier| {
-        // Check if the pressed key is Return or KP_Enter
-        if keyval == Key::Return || keyval == Key::KP_Enter {
-            // Check if no modifiers are pressed (for plain Enter) OR Ctrl is pressed (for Ctrl+Enter)
-            if modifier == ModifierType::empty() || modifier.contains(ModifierType::CONTROL_MASK) {
-                trigger_run_clone_for_enter(); // Call the trigger function
-                glib::Propagation::Stop // Stop propagation
-            } else {
-                glib::Propagation::Proceed // Let other key presses with modifiers proceed
-            }
-        } else {
-            glib::Propagation::Proceed // Not an Enter key
-        }
-    });
-    input_entry_row.add_controller(key_controller_input); // Add the controller to the input EntryRow
-
-    // 3. Connect Input Change signal (Optional based on config)
     let config_clone = Arc::clone(&config);
     let sender_clone = sender.clone();
     let command_output_rows_clone_for_change = Arc::clone(&command_output_rows); // Clone for clearing outputs on change
 
     // Connect to the 'changed' signal directly on the input EntryRow
-    input_entry_row.connect_changed(move |entry_row| {
-        // Check if the config setting for running on change is enabled
-        if config_clone.run_commands_on_change {
+    if config_clone.run_commands_on_change {
+        input_entry_row.connect_changed(move |entry_row| {
+            // Check if the config setting for running on change is enabled
             // Clear previous outputs before running on change for a clean view
             for (_, entry_row) in command_output_rows_clone_for_change.iter() {
                 entry_row.set_text("");
@@ -286,8 +250,8 @@ fn build_ui(app: &Application) {
                 Arc::clone(&config_clone),
                 sender_clone.clone(),
             );
-        }
-    });
+        });
+    }
 
     // Connect Clear Button signal
     let input_entry_row_clone_for_clear = input_entry_row.clone(); // Clone EntryRow for this closure
